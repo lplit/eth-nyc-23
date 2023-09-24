@@ -44,10 +44,13 @@ export const ContractInteraction = () => {
       <div className="flex flex-col w-full mx-5 sm:mx-8 2xl:mx-20">
         <div className={`mt-10 flex gap-2 ${visible ? "" : "invisible"} max-w-2xl`}>
           <div className="flex gap-5 bg-base-200 bg-opacity-80 z-0 p-7 rounded-2xl shadow-lg">
-            <span className="text-3xl">👋🏻</span>
+            <span className="text-3xl">⌐[T]-[T]</span>
             <div>
               <div>
                 Create a <strong>crowdfunding campaign</strong> and fund your project.
+              </div>
+              <div>
+                Gather funds and start your project.
               </div>
             </div>
           </div>

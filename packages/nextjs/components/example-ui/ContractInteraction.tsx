@@ -5,15 +5,22 @@ import { HareIcon } from "./assets/HareIcon";
 import { ArrowSmallRightIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useScaffoldContractWrite } from "~~/hooks/scaffold-eth";
 
+const inputClasses =
+  "input my-1 font-bai-jamjuree w-full px-5 border border-primary placeholder-black uppercase";
+
 export const ContractInteraction = () => {
   const [visible, setVisible] = useState(true);
   const [newGreeting, setNewGreeting] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [durationInDays, setDurationInDays] = useState<bigint>(0n);
+  const [amountToRaise, setAmountToRaise] = useState<bigint>(0n);
 
   const { writeAsync, isLoading } = useScaffoldContractWrite({
-    contractName: "YourContract",
-    functionName: "setGreeting",
-    args: [newGreeting],
-    value: "0.01",
+    contractName: "Crowdfunding",
+    functionName: "startProject",
+    args: [newTitle, newDesc, durationInDays, amountToRaise],
+    // value: "0.01",
     onBlockConfirmation: txnReceipt => {
       console.log("📦 Transaction blockHash", txnReceipt.blockHash);
     },
@@ -30,15 +37,7 @@ export const ContractInteraction = () => {
             <span className="text-3xl">👋🏻</span>
             <div>
               <div>
-                In this page you can see how some of our <strong>hooks & components</strong> work, and how you can bring
-                them to life with your own design! Have fun and try it out!
-              </div>
-              <div className="mt-2">
-                Check out{" "}
-                <code className="italic bg-base-300 text-base font-bold [word-spacing:-0.5rem]">
-                  packages / nextjs/pages / example-ui.tsx
-                </code>{" "}
-                and its underlying components.
+                Create a <strong>crowdfunding campaign</strong> and fund your project.
               </div>
             </div>
           </div>
@@ -51,14 +50,32 @@ export const ContractInteraction = () => {
         </div>
 
         <div className="flex flex-col mt-6 px-7 py-8 bg-base-200 opacity-80 rounded-2xl shadow-lg border-2 border-primary">
-          <span className="text-4xl sm:text-6xl text-black">Set a Greeting_</span>
+          <span className="text-4xl sm:text-6xl text-black">Start a crowdfund_</span>
 
-          <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-5">
+          <div className="mt-8 flex-row sm:flex-row items-start sm:items-center gap-2 sm:gap-5">
             <input
               type="text"
-              placeholder="Write your greeting here"
-              className="input font-bai-jamjuree w-full px-5 bg-[url('/assets/gradient-bg.png')] bg-[length:100%_100%] border border-primary text-lg sm:text-2xl placeholder-white uppercase"
-              onChange={e => setNewGreeting(e.target.value)}
+              placeholder="Title"
+              className={inputClasses}
+              onChange={e => setNewTitle(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Description"
+              className={inputClasses}
+              onChange={e => setNewDesc(e.target.value)}
+            />
+            <input
+              type="number"
+              placeholder="Duration in days"
+              className={inputClasses}
+              onChange={e => setDurationInDays(BigInt(e.target.value))}
+            />
+            <input
+              type="number"
+              placeholder="Amount to raise in ETH"
+              className={inputClasses}
+              onChange={e => setAmountToRaise(BigInt(e.target.value))}
             />
             <div className="flex rounded-full border border-primary p-1 flex-shrink-0">
               <div className="flex rounded-full border-2 border-primary p-1">
@@ -79,10 +96,10 @@ export const ContractInteraction = () => {
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2 items-start">
+          {/* <div className="mt-4 flex gap-2 items-start">
             <span className="text-sm leading-tight">Price:</span>
             <div className="badge badge-warning">0.01 ETH + Gas</div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

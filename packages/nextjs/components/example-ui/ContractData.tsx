@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Marquee from "react-fast-marquee";
 import { useAccount } from "wagmi";
 import {
@@ -9,7 +9,7 @@ import {
   useScaffoldEventSubscriber,
 } from "~~/hooks/scaffold-eth";
 
-const MARQUEE_PERIOD_IN_SEC = 5;
+const MARQUEE_PERIOD_IN_SEC = 130;
 
 export const ContractData = () => {
   const { address } = useAccount();
@@ -20,47 +20,52 @@ export const ContractData = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const greetingRef = useRef<HTMLDivElement>(null);
 
-  const { data: totalCounter } = useScaffoldContractRead({
-    contractName: "YourContract",
-    functionName: "totalCounter",
+  const { data: allProjects, isLoading: isProjectsLoading } = useScaffoldContractRead({
+    contractName: "Crowdfunding",
+    functionName: "returnAllProjects"
   });
 
-  const { data: currentGreeting, isLoading: isGreetingLoading } = useScaffoldContractRead({
-    contractName: "YourContract",
-    functionName: "greeting",
+  const { data: allProjectsDetails, isLoading: isProjectDetailsLoading } = useScaffoldContractRead({
+    contractName: "Crowdfunding",
+    functionName: "returnAllProjects"
   });
+
+  const totalCounter = useMemo(() => {
+    if (!allProjects) return 0;
+    return allProjects.length;
+  }, [allProjects]);
 
   useScaffoldEventSubscriber({
-    contractName: "YourContract",
-    eventName: "GreetingChange",
+    contractName: "Crowdfunding",
+    eventName: "ProjectStarted",
     listener: logs => {
       logs.map(log => {
-        const { greetingSetter, value, premium, newGreeting } = log.args;
-        console.log("📡 GreetingChange event", greetingSetter, value, premium, newGreeting);
+        // const { contractAddress, projectStarter, projectTitle, projectDesc, deadline, goalAmount } = log.args;
+        console.log("📡 ProjectStarted event", log.args);
       });
     },
   });
 
   const {
-    data: myGreetingChangeEvents,
+    data: projectStartedEvents,
     isLoading: isLoadingEvents,
     error: errorReadingEvents,
   } = useScaffoldEventHistory({
-    contractName: "YourContract",
-    eventName: "GreetingChange",
+    contractName: "Crowdfunding",
+    eventName: "ProjectStarted",
     fromBlock: process.env.NEXT_PUBLIC_DEPLOY_BLOCK ? BigInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK) : 0n,
-    filters: { greetingSetter: address },
+    // filters: { greetingSetter: address },
     blockData: true,
   });
 
-  console.log("Events:", isLoadingEvents, errorReadingEvents, myGreetingChangeEvents);
+  console.log("Events:", isLoadingEvents, errorReadingEvents, projectStartedEvents);
 
-  const { data: yourContract } = useScaffoldContract({ contractName: "YourContract" });
+  const { data: yourContract } = useScaffoldContract({ contractName: "Crowdfunding" });
   console.log("yourContract: ", yourContract);
 
   const { showAnimation } = useAnimationConfig(totalCounter);
 
-  const showTransition = transitionEnabled && !!currentGreeting && !isGreetingLoading;
+  const showTransition = transitionEnabled && !!allProjects && !isProjectsLoading;
 
   useEffect(() => {
     if (transitionEnabled && containerRef.current && greetingRef.current) {
@@ -91,7 +96,7 @@ export const ContractData = () => {
             />
           </button>
           <div className="bg-secondary border border-primary rounded-xl flex">
-            <div className="p-2 py-1 border-r border-primary flex items-end">Total count</div>
+            <div className="p-2 py-1 border-r border-primary flex items-end">Total campaigns count</div>
             <div className="text-4xl text-right min-w-[3rem] px-2 py-1 flex justify-end font-bai-jamjuree">
               {totalCounter?.toString() || "0"}
             </div>
@@ -102,7 +107,7 @@ export const ContractData = () => {
           <div className="relative overflow-x-hidden" ref={containerRef}>
             {/* for speed calculating purposes */}
             <div className="absolute -left-[9999rem]" ref={greetingRef}>
-              <div className="px-4">{currentGreeting}</div>
+              <div className="px-4">{allProjects}</div>
             </div>
             {new Array(3).fill("").map((_, i) => {
               const isLineRightDirection = i % 2 ? isRightDirection : !isRightDirection;
@@ -115,7 +120,7 @@ export const ContractData = () => {
                   speed={marqueeSpeed}
                   className={i % 2 ? "-my-10" : ""}
                 >
-                  <div className="px-4">{currentGreeting || " "}</div>
+                  <div className="px-4">{allProjects || " "}</div>
                 </Marquee>
               );
             })}

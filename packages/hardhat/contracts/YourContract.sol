@@ -1,87 +1,189 @@
-//SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-// Useful for debugging. Remove when deploying to a live network.
-import "hardhat/console.sol";
+contract Crowdfunding {
+    // List of existing projects
+    Project[] private projects;
 
-// Use openzeppelin to inherit battle-tested implementations (ERC20, ERC721, etc)
-// import "@openzeppelin/contracts/access/Ownable.sol";
+    // Event that will be emitted whenever a new project is started
+    event ProjectStarted(
+        address contractAddress,
+        address projectStarter,
+        string projectTitle,
+        string projectDesc,
+        uint256 deadline,
+        uint256 goalAmount
+    );
 
-/**
- * A smart contract that allows changing a state variable of the contract and tracking the changes
- * It also allows the owner to withdraw the Ether in the contract
- * @author BuidlGuidl
- */
-contract YourContract {
-	// State Variables
-	address public immutable owner;
-	string public greeting = "Building Unstoppable Apps!!!";
-	bool public premium = false;
-	uint256 public totalCounter = 0;
-	mapping(address => uint) public userGreetingCounter;
+    /** @dev Function to start a new project.
+     * @param title Title of the project to be created
+     * @param description Brief description about the project
+     * @param durationInDays Project deadline in days
+     * @param amountToRaise Project goal in wei
+     */
+    function startProject(
+        string calldata title,
+        string calldata description,
+        uint durationInDays,
+        uint amountToRaise
+    ) external {
+        uint raiseUntil = block.timestamp + durationInDays * 1 days;
 
-	// Events: a way to emit log statements from smart contract that can be listened to by external parties
-	event GreetingChange(
-		address indexed greetingSetter,
-		string newGreeting,
-		bool premium,
-		uint256 value
-	);
+        Project newProject = new Project(
+            payable(msg.sender),
+            title,
+            description,
+            raiseUntil,
+            amountToRaise
+        );
+        projects.push(newProject);
+        emit ProjectStarted(
+            address(newProject),
+            msg.sender,
+            title,
+            description,
+            raiseUntil,
+            amountToRaise
+        );
+    }
 
-	// Constructor: Called once on contract deployment
-	// Check packages/hardhat/deploy/00_deploy_your_contract.ts
-	constructor(address _owner) {
-		owner = _owner;
-	}
+    /** @dev Function to get all projects' contract addresses.
+     * @return projects A list of all projects' contract addreses
+     */
+    function returnAllProjects() external view returns (Project[] memory) {
+        return projects;
+    }
+}
 
-	// Modifier: used to define a set of rules that must be met before or after a function is executed
-	// Check the withdraw() function
-	modifier isOwner() {
-		// msg.sender: predefined variable that represents address of the account that called the current function
-		require(msg.sender == owner, "Not the Owner");
-		_;
-	}
+contract Project {
+    // Data structures
+    enum State {
+        Fundraising,
+        Expired,
+        Successful
+    }
 
-	/**
-	 * Function that allows anyone to change the state variable "greeting" of the contract and increase the counters
-	 *
-	 * @param _newGreeting (string memory) - new greeting to save on the contract
-	 */
-	function setGreeting(string memory _newGreeting) public payable {
-		// Print data to the hardhat chain console. Remove when deploying to a live network.
-		console.log(
-			"Setting new greeting '%s' from %s",
-			_newGreeting,
-			msg.sender
-		);
+    // State variables
+    address payable public creator;
+    uint public amountGoal; // required to reach at least this much, else everyone gets refund
+    uint public completeAt;
+    uint256 public currentBalance;
+    uint public raiseBy;
+    string public title;
+    string public description;
+    State public state = State.Fundraising; // initialize on create
+    mapping(address => uint) public contributions;
 
-		// Change state variables
-		greeting = _newGreeting;
-		totalCounter += 1;
-		userGreetingCounter[msg.sender] += 1;
+    // Event that will be emitted whenever funding will be received
+    event FundingReceived(address contributor, uint amount, uint currentTotal);
+    // Event that will be emitted whenever the project starter has received the funds
+    event CreatorPaid(address recipient);
 
-		// msg.value: built-in global variable that represents the amount of ether sent with the transaction
-		if (msg.value > 0) {
-			premium = true;
-		} else {
-			premium = false;
-		}
+    // Modifier to check current state
+    modifier inState(State _state) {
+        require(state == _state);
+        _;
+    }
 
-		// emit: keyword used to trigger an event
-		emit GreetingChange(msg.sender, _newGreeting, msg.value > 0, 0);
-	}
+    // Modifier to check if the function caller is the project creator
+    modifier isCreator() {
+        require(msg.sender == creator);
+        _;
+    }
 
-	/**
-	 * Function that allows the owner to withdraw all the Ether in the contract
-	 * The function can only be called by the owner of the contract as defined by the isOwner modifier
-	 */
-	function withdraw() public isOwner {
-		(bool success, ) = owner.call{ value: address(this).balance }("");
-		require(success, "Failed to send Ether");
-	}
+    constructor(
+        address payable projectStarter,
+        string memory projectTitle,
+        string memory projectDesc,
+        uint fundRaisingDeadline,
+        uint goalAmount
+    ) public {
+        creator = projectStarter;
+        title = projectTitle;
+        description = projectDesc;
+        amountGoal = goalAmount;
+        raiseBy = fundRaisingDeadline;
+        currentBalance = 0;
+    }
 
-	/**
-	 * Function that allows the contract to receive ETH
-	 */
-	receive() external payable {}
+    /** @dev Function to fund a certain project.
+     */
+    function contribute() external inState(State.Fundraising) payable {
+        require(msg.sender != creator);
+        contributions[msg.sender] += msg.value;
+        currentBalance += msg.value;
+        emit FundingReceived(msg.sender, msg.value, currentBalance);
+        checkIfFundingCompleteOrExpired();
+    }
+
+    /** @dev Function to change the project state depending on conditions.
+     */
+    function checkIfFundingCompleteOrExpired() public {
+        if (currentBalance >= amountGoal) {
+            state = State.Successful;
+            payOut();
+        } else if (block.timestamp > raiseBy) {
+            state = State.Expired;
+        }
+        completeAt = block.timestamp;
+    }
+
+    /** @dev Function to give the received funds to project starter.
+     */
+    function payOut() internal inState(State.Successful) returns (bool) {
+        uint256 totalRaised = currentBalance;
+        currentBalance = 0;
+
+        if (creator.send(totalRaised)) {
+            emit CreatorPaid(creator);
+            return true;
+        } else {
+            currentBalance = totalRaised;
+            state = State.Successful;
+        }
+
+        return false;
+    }
+
+    /** @dev Function to retrieve donated amount when a project expires.
+     */
+    function getRefund() public inState(State.Expired) returns (bool) {
+        require(contributions[msg.sender] > 0);
+
+        uint amountToRefund = contributions[msg.sender];
+        contributions[msg.sender] = 0;
+
+        if (!payable(msg.sender).send(amountToRefund)) {
+            contributions[msg.sender] = amountToRefund;
+            return false;
+        } else {
+            currentBalance -= amountToRefund;
+        }
+
+        return true;
+    }
+
+    /** @dev Function to get specific information about the project.
+     */
+    function getDetails()
+        public
+        view
+        returns (
+            address payable projectStarter,
+            string memory projectTitle,
+            string memory projectDesc,
+            uint256 deadline,
+            State currentState,
+            uint256 currentAmount,
+            uint256 goalAmount
+        )
+    {
+        projectStarter = creator;
+        projectTitle = title;
+        projectDesc = description;
+        deadline = raiseBy;
+        currentState = state;
+        currentAmount = currentBalance;
+        goalAmount = amountGoal;
+    }
 }

@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Marquee from "react-fast-marquee";
 import { useAccount } from "wagmi";
@@ -9,7 +10,9 @@ import {
   useScaffoldEventSubscriber,
 } from "~~/hooks/scaffold-eth";
 
-const MARQUEE_PERIOD_IN_SEC = 130;
+const MARQUEE_PERIOD_IN_SEC = 30;
+
+const ProjectStates = ["Active", "Completed", "Failed"];
 
 export const ContractData = () => {
   const { address } = useAccount();
@@ -22,12 +25,7 @@ export const ContractData = () => {
 
   const { data: allProjects, isLoading: isProjectsLoading } = useScaffoldContractRead({
     contractName: "Crowdfunding",
-    functionName: "returnAllProjects"
-  });
-
-  const { data: allProjectsDetails, isLoading: isProjectDetailsLoading } = useScaffoldContractRead({
-    contractName: "Crowdfunding",
-    functionName: "returnAllProjects"
+    functionName: "returnAllProjects",
   });
 
   const totalCounter = useMemo(() => {
@@ -76,9 +74,9 @@ export const ContractData = () => {
   }, [transitionEnabled, containerRef, greetingRef]);
 
   return (
-    <div className="flex flex-col justify-center items-center bg-[url('/assets/gradient-bg.png')] bg-[length:100%_100%] py-10 px-5 sm:px-0 lg:py-auto max-w-[100vw] ">
+    <div className="flex flex-col justify-center items-center bg-[url('/assets/gradient-bg.png')] bg-[length:100%_100%] py-10 px-2 sm:px-0 lg:py-auto w-full">
       <div
-        className={`flex flex-col max-w-md bg-base-200 bg-opacity-70 rounded-2xl shadow-lg px-5 py-4 w-full ${
+        className={`flex flex-col bg-base-200 bg-opacity-70 rounded-2xl shadow-lg px-5 py-4 w-full ${
           showAnimation ? "animate-zoom" : ""
         }`}
       >
@@ -105,10 +103,6 @@ export const ContractData = () => {
 
         <div className="mt-3 border border-primary bg-neutral rounded-3xl text-secondary  overflow-hidden text-[116px] whitespace-nowrap w-full uppercase tracking-tighter font-bai-jamjuree leading-tight">
           <div className="relative overflow-x-hidden" ref={containerRef}>
-            {/* for speed calculating purposes */}
-            <div className="absolute -left-[9999rem]" ref={greetingRef}>
-              <div className="px-4">{allProjects}</div>
-            </div>
             {new Array(3).fill("").map((_, i) => {
               const isLineRightDirection = i % 2 ? isRightDirection : !isRightDirection;
               return (
@@ -120,7 +114,18 @@ export const ContractData = () => {
                   speed={marqueeSpeed}
                   className={i % 2 ? "-my-10" : ""}
                 >
-                  <div className="px-4">{allProjects || " "}</div>
+                  <div className="px-4">
+                    {allProjects && (
+                      <React.Fragment>
+                        {allProjects.map((project, index) => (
+                          <div key={index} className="px-4">
+                            #{index} | {project.title} | {project.description} | {ProjectStates[project.state]} |{" "}
+                            {project.currentBalance.toString()}/{project.amountGoal.toString()} {"ETH"}
+                          </div>
+                        ))}
+                      </React.Fragment>
+                    )}
+                  </div>
                 </Marquee>
               );
             })}

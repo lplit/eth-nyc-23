@@ -114,6 +114,14 @@ const config: HardhatUserConfig = {
       url: "https://goerli.base.org",
       accounts: [deployerPrivateKey],
     },
+    scrollSepolia: {
+      url: "https://sepolia-rpc.scroll.io/",
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
+    linea_testnet: {
+      url: `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY!}`,
+      accounts: [process.env.PRIVATE_KEY!],
+    },
   },
   verify: {
     etherscan: {
